@@ -30,7 +30,8 @@ app_sources = [
     'bank_customer.cpp',
     'bank.h',
     'item.h', 
-    'seller.h'
+    'seller.h',
+    'buyer.h'
 # Add other source files here, e.g., 'src/helper.cpp'
 ]
 
