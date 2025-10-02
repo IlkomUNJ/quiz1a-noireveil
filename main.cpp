@@ -1,12 +1,25 @@
 #include <iostream>
+#include <vector>
+#include <string>
+#include <limits>
+#include <algorithm>
 #include "bank_customer.h"
 #include "buyer.h"
+#include "seller.h"
 
 enum PrimaryPrompt{LOGIN, REGISTER, EXIT, ADMIN_LOGIN};
 enum RegisterPrompt{CREATE_BUYER, CREATE_SELLER, BACK};
 using namespace std;
 
 int main() {
+    vector<BankCustomer> allBankAccounts;
+    allBankAccounts.reserve(100);
+    vector<Buyer*> allBuyers;
+    vector<seller*> allSellers;
+    int nextBankId = 1;
+    int nextBuyerId = 1;
+    int nextSellerId = 1;
+
     //create a loop prompt 
     PrimaryPrompt prompt = LOGIN;
     RegisterPrompt regPrompt = CREATE_BUYER;
@@ -22,6 +35,14 @@ int main() {
         cout << "4. Admin Login" << endl;
         int choice;
         cin >> choice;
+
+        if (cin.fail()) {
+            cout << "Invalid input. Please enter a number." << endl;
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            continue;
+        }
+
         prompt = static_cast<PrimaryPrompt>(choice - 1);
         switch (prompt) {
             case LOGIN:
@@ -123,6 +144,205 @@ int main() {
                 cin >> username;
                 cout << "Password: ";
                 cin >> password;
+                
+                if (username == ADMIN_USERNAME && password == ADMIN_PASSWORD) {
+                    cout << "Admin login successful!" << endl;
+                    int adminChoice = 0;
+                    while (adminChoice != 6) {
+                        cout << "\n--- Admin Menu ---" << endl;
+                        cout << "1. View All Buyers & Sellers" << endl;
+                        cout << "2. View All details of Buyers & Sellers" << endl;
+                        cout << "3. Seek certain buyer or seller" << endl;
+                        cout << "4. Create new buyer/seller/Bank account" << endl;
+                        cout << "5. Remove buyer/seller based on ID" << endl;
+                        cout << "6. Back to Main Menu" << endl;
+                        cout << "Enter your choice: ";
+                        cin >> adminChoice;
+
+                        if (cin.fail()) {
+                            cout << "Invalid input. Please enter a number." << endl;
+                            cin.clear();
+                            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                            adminChoice = 0;
+                            continue;
+                        }
+
+                        switch (adminChoice) {
+                            case 1: { // View All Buyers, Sellers
+                                cout << "\n--- List of All Buyers ---" << endl;
+                                if (allBuyers.empty()) {
+                                    cout << "No buyers data exists." << endl;
+                                } else {
+                                    for (Buyer* buyer : allBuyers) {
+                                        cout << "Buyer ID: " << buyer->getId() << ", Name: " << buyer->getName() << endl;
+                                    }
+                                }
+
+                                cout << "\n--- List of All Sellers ---" << endl;
+                                if (allSellers.empty()) {
+                                    cout << "No sellers data exists." << endl;
+                                } else {
+                                    for (seller* s : allSellers) {
+                                        cout << "Seller ID: " << s->getId() << ", Name: " << s->getName() << endl;
+                                    }
+                                }
+                                break;
+                            }
+                            case 2: { // View All details of Buyers, Sellers
+                                int targetId;
+                                cout << "Enter Buyer/Seller ID to view details: ";
+                                cin >> targetId;
+                                bool found = false;
+
+                                for (Buyer* buyer : allBuyers) {
+                                    if (buyer->getId() == targetId) {
+                                        cout << "\n--- Buyer Details ---" << endl;
+                                        cout << "ID: " << buyer->getId() << endl;
+                                        cout << "Name: " << buyer->getName() << endl;
+                                        cout << "--- Linked Bank Account ---" << endl;
+                                        buyer->getAccount().printInfo();
+                                        found = true;
+                                        break;
+                                    }
+                                }
+
+                                if (!found) {
+                                    for (seller* s : allSellers) {
+                                        if (s->getId() == targetId) {
+                                            cout << "\n--- Seller Details ---" << endl;
+                                            cout << "ID: " << s->getId() << endl;
+                                            cout << "Name: " << s->getName() << endl;
+                                            cout << "--- Linked Bank Account ---" << endl;
+                                            s->getAccount().printInfo();
+                                            found = true;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (!found) {
+                                    cout << "User with ID " << targetId << " not found." << endl;
+                                }
+                                break;
+                            }
+                            case 3: { // Seek certain buyer of seller
+                                string query;
+                                cout << "Enter Name to search for: ";
+                                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                                getline(cin, query);
+                                bool found = false;
+                                
+                                cout << "\n--- Search Results ---" << endl;
+                                for (Buyer* buyer : allBuyers) {
+                                    if (buyer->getName().find(query) != string::npos) {
+                                        cout << "Found Buyer -> ID: " << buyer->getId() << ", Name: " << buyer->getName() << endl;
+                                        found = true;
+                                    }
+                                }
+                                for (seller* s : allSellers) {
+                                    if (s->getName().find(query) != string::npos) {
+                                        cout << "Found Seller -> ID: " << s->getId() << ", Name: " << s->getName() << endl;
+                                        found = true;
+                                    }
+                                }
+
+                                if (!found) {
+                                    cout << "No user found with that name." << endl;
+                                }
+                                break;
+                            }
+                            case 4: { // Create new buyer/seller/Bank account
+                                string name;
+                                double balance;
+                                
+                                cout << "Creating a new Bank Account first..." << endl;
+                                cout << "Enter account holder name: ";
+                                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                                getline(cin, name);
+                                cout << "Enter initial deposit amount: ";
+                                cin >> balance;
+                                
+                                allBankAccounts.emplace_back(nextBankId, name, balance);
+                                cout << "Bank Account created with ID: " << nextBankId << endl;
+                                
+                                cout << "Create (1) Buyer or (2) Seller for this account? ";
+                                int userTypeChoice;
+                                cin >> userTypeChoice;
+                                
+                                BankCustomer& newAccount = allBankAccounts.back();
+
+                                if (userTypeChoice == 1) {
+                                    allBuyers.push_back(new Buyer(nextBuyerId, name, newAccount));
+                                    cout << "Buyer created with ID: " << nextBuyerId << endl;
+                                    nextBuyerId++;
+                                } else if (userTypeChoice == 2) {
+                                    Buyer tempBuyer(nextBuyerId, name, newAccount);
+                                    allSellers.push_back(new seller(tempBuyer, nextSellerId, name + "'s Store"));
+                                    cout << "Seller created with ID: " << nextSellerId << endl;
+                                    nextSellerId++;
+                                    nextBuyerId++;
+                                } else {
+                                    cout << "Invalid choice. Account created but not linked to a buyer/seller." << endl;
+                                }
+                                nextBankId++;
+                                break;
+                            }
+                            case 5: { // Remove buyer/seller based on ID
+                                int targetId;
+                                cout << "Enter Buyer/Seller ID to remove: ";
+                                cin >> targetId;
+                                bool removed = false;
+
+                                for (auto it = allBuyers.begin(); it != allBuyers.end(); ++it) {
+                                    if ((*it)->getId() == targetId) {
+                                        int accountId = (*it)->getAccount().getId();
+                                        delete *it;
+                                        it = allBuyers.erase(it);
+                                        
+                                        allBankAccounts.erase(remove_if(allBankAccounts.begin(), allBankAccounts.end(),
+                                            [accountId](BankCustomer& acc){ return acc.getId() == accountId; }),
+                                            allBankAccounts.end());
+                                        
+                                        cout << "Buyer with ID " << targetId << " and associated bank account removed." << endl;
+                                        removed = true;
+                                        break;
+                                    }
+                                }
+
+                                if (!removed) {
+                                    for (auto it = allSellers.begin(); it != allSellers.end(); ++it) {
+                                        if ((*it)->getId() == targetId) {
+                                            int accountId = (*it)->getAccount().getId();
+                                            delete *it;
+                                            it = allSellers.erase(it);
+
+                                            allBankAccounts.erase(remove_if(allBankAccounts.begin(), allBankAccounts.end(),
+                                                [accountId](BankCustomer& acc){ return acc.getId() == accountId; }),
+                                                allBankAccounts.end());
+
+                                            cout << "Seller with ID " << targetId << " and associated bank account removed." << endl;
+                                            removed = true;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (!removed) {
+                                    cout << "User with ID " << targetId << " not found." << endl;
+                                }
+                                break;
+                            }
+                            case 6:
+                                cout << "Returning to main menu..." << endl;
+                                break;
+                            default:
+                                cout << "Invalid option." << endl;
+                                break;
+                        }
+                    }
+                } else {
+                    cout << "Invalid admin credentials." << endl;
+                }
                 /** After login create a sub prompt that provides the following features
                 1. Account Management
                     - View All Buyers, Sellers
@@ -141,6 +361,16 @@ int main() {
         }
         cout << endl;
     }
+
+    // ini buat ngebersihin memori sebelum program berakhir
+    for (Buyer* buyer : allBuyers) {
+        delete buyer;
+    }
+    for (seller* s : allSellers) {
+        delete s;
+    }
+    allBuyers.clear();
+    allSellers.clear();
 
     //BankCustomer customer1(1, "Alice", 1000.0);
     //Buyer buyer1(1, customer1.getName(), customer1);
